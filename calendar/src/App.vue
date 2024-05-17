@@ -1,16 +1,16 @@
 <template>
   <div id="app" class="app-background">
-    <Calendar />
+    <AppCalendar />
   </div>
 </template>
 
 <script>
-import Calendar from './components/Calendar.vue';
+import AppCalendar from './components/AppCalendar.vue';
 
 export default {
   name: 'App',
   components: {
-    Calendar,
+    AppCalendar,
   },
 };
 </script>
