@@ -17,6 +17,7 @@ const bot = new Telegraf(botToken);
 const status = {
     userLang: '',
     botLang: 'en',
+    awaitingLanguage: null,
 };
 
 
@@ -30,35 +31,36 @@ const proxies = [
 let currentProxyIndex = 0;
 
 async function translateWithProxy(text, lang) {
-    const proxy = proxies[currentProxyIndex];
-    console.log(`Using proxy: ${proxy.ip}:${proxy.port}`);
-    const proxyUrl = `http://${proxy.username}:${proxy.password}@${proxy.ip}:${proxy.port}`;
-    const agent = new HttpsProxyAgent(proxyUrl);
-    try {
-        const response = await translate(text, { to: lang, agent: agent });
-        return response.text;
-    } catch (error) {
-        console.error('Error while translating:', error);
-        if (error.statusCode === 429) {
-            // Handle TooManyRequestsError by switching to the next proxy server
-            console.log('Too many requests, switching to the next proxy.');
+    let attempts = 0;
+    const maxAttempts = proxies.length;
+
+    while (attempts < maxAttempts) {
+        const proxy = proxies[currentProxyIndex];
+        console.log(`Using proxy: ${proxy.ip}:${proxy.port}`);
+        const proxyUrl = `http://${proxy.username}:${proxy.password}@${proxy.ip}:${proxy.port}`;
+        const agent = new HttpsProxyAgent(proxyUrl);
+
+        try {
+            const response = await translate(text, { to: lang, agent: agent });
+            return response.text;
+        } catch (error) {
+            console.error('Error while translating:', error);
+
+            // Handle TooManyRequestsError or other errors by switching to the next proxy server
+            console.log('Too many requests or other error, switching to the next proxy.');
             currentProxyIndex = (currentProxyIndex + 1) % proxies.length;
             console.log(`Next proxy index: ${currentProxyIndex}`);
+
+            // Increment the attempts counter
+            attempts++;
+
             // Introduce a delay before retrying with the next proxy
             await new Promise(resolve => setTimeout(resolve, 3000)); // 3 seconds delay
-            // Retry translation with the next proxy server
-            try {
-                const translation = await translateWithProxy(text, lang);
-                return translation; // Return the translation obtained with the next proxy
-            } catch (error) {
-                console.error('Error while translating with another proxy:', error);
-                throw error; // Throw error if translation fails with all proxies
-            }
-        } else {
-            // Throw other translation errors
-            throw error;
         }
     }
+
+    // If all attempts are exhausted and translation failed, throw an error
+    throw new Error('Translation failed after using all proxies.');
 }
 
 
@@ -129,6 +131,7 @@ bot.on('text', async (ctx) => {
         const langCode = ctx.message.text;
         if (iso6391.validate(langCode)) {
             status.userLang = langCode;
+            status.awaitingLanguage = null; // Сброс статуса ожидания языка
             await translateAndReply(`Язык установлен на ${iso6391.getName(langCode)}`, ctx);
         } else {
             await translateAndReply('Некорректный код языка. Введите код языка из ISO 639-1 (например, en, ru, de).', ctx);
@@ -137,21 +140,22 @@ bot.on('text', async (ctx) => {
         const langCode = ctx.message.text;
         if (iso6391.validate(langCode)) {
             status.botLang = langCode;
+            status.awaitingLanguage = null; // Сброс статуса ожидания языка
             await translateAndReply(`Язык бота установлен на ${iso6391.getName(langCode)}`, ctx);
         } else {
-            await translateAndReply('Некорректный код языка. ведите код языка из ISO 639-1 (например, en, ru, de).', ctx);
+            await translateAndReply('Некорректный код языка. Введите код языка из ISO 639-1 (например, en, ru, de).', ctx);
         }
     } else {
         if (status.userLang && status.botLang) {
             try {
-                const translation = await translateWithProxy(ctx.message.text, status.botLang );
+                const translation = await translateWithProxy(ctx.message.text, status.botLang);
                 await ctx.reply(translation);
             } catch (error) {
                 console.error('Error while translating:', error);
                 await translateAndReply('Ошибка при переводе текста.', ctx);
             }
         } else {
-            await translateAndReply('Для перевода текста необходимо установить язык пользователя и язык бота.', ctx);
+            await translateAndReply('Для перевода текста необходимо установить язык пользователю и боту.', ctx);
         }
     }
 });
