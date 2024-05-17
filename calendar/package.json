@@ -1,0 +1,18 @@
+{
+  "name": "calendar",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./src/main.js",
+  "type": "module",
+  "scripts": {
+    "serve": "vue-cli-service serve --port $PORT"
+  },
+  "author": "alina lobova 2102d",
+  "license": "ISC",
+  "dependencies": {
+    "@vue/cli": "^5.0.8",
+    "@vue/cli-service": "^5.0.8",
+    "moment": "^2.30.1",
+    "vue": "^3.4.27"
+  }
+}
