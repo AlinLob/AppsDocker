@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  lingobot:
+    build:
+      context: ./lingobot
+      dockerfile: Dockerfile
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - PROXIES=${PROXIES}
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  calendar:
+    build:
+      context: ./calendar
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+    restart: unless-stopped

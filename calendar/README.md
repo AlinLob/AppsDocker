@@ -8,9 +8,10 @@
 
 ## Создание Docker-образа
 
-1. Клонируйте репозиторий на ваш локальный компьютер:
+1. Клонируйте репозиторий на ваш компьютер:
     ```sh
     git clone git@github.com:AlinLob/AppsDocker.git
+    cd AppsDocker
     cd calendar
     ```
 

@@ -43,7 +43,7 @@ async function translateWithProxy(text, lang, ctx) {
     }
 
     if (ctx && ctx.reply) {
-        await ctx.reply('All proxies failed. Please try again later.');
+        console.log('All proxies failed. Please try again later.');
     }
     return 'The request limit has been reached. Please try again later.';
 }

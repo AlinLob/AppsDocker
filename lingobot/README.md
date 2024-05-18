@@ -11,7 +11,8 @@
 1. Клонируйте репозиторий на ваш компьютер:
     ```sh
     git clone git@github.com:AlinLob/AppsDocker.git
-    cd lingoBot
+    cd AppsDocker
+    cd lingobot
     ``` 
 
 2. Создайте Docker-образ:
