@@ -28,7 +28,6 @@ const proxies = JSON.parse(process.env.PROXIES);
 async function translateWithProxy(text, lang, ctx) {
     const numProxies = proxies.length;
 
-    // Переменная для отслеживания количества неудачных попыток перевода
     let failedAttempts = 0;
 
     while (failedAttempts < numProxies) {
@@ -39,39 +38,27 @@ async function translateWithProxy(text, lang, ctx) {
 
         try {
             const result = await translate(text, { to: lang, fetchOptions: { agent } });
-            console.log('Translation successful!');
             return result.text;
         } catch (error) {
             console.error('Error while translating:', error);
 
             if (error.code === '429' || error.message.includes('Too Many Requests')) {
-                // Handle TooManyRequestsError by switching to the next proxy server
                 console.log('Too many requests, switching to the next proxy.');
                 currentProxyIndex = (currentProxyIndex + 1) % numProxies;
                 console.log(`Next proxy index: ${currentProxyIndex}`);
-
-                // Introduce a delay before retrying with the next proxy
-                await new Promise(resolve => setTimeout(resolve, 3000)); // 3 seconds delay
-
-                // Increment the failedAttempts counter
+                await new Promise(resolve => setTimeout(resolve, 3000)); 
                 failedAttempts++;
             } else {
-                // Если возникла другая ошибка, бросаем ее дальше для обработки
                 throw error;
             }
         }
     }
 
-    // Если все прокси были попробованы безуспешно
     if (ctx && ctx.reply) {
         await ctx.reply('All proxies failed. Please try again later.');
     }
-    // Возвращаем сообщение об исчерпании лимита запросов
     return 'The request limit has been reached. Please try again later.';
 }
-
-    
-
 
 
 async function translateAndReply(text, ctx) {
@@ -121,22 +108,19 @@ bot.command('iso639', async (ctx) => {
         const name = iso6391.getName(code);
         return ` • ${name}: ${code}`;
     });
-    // Сортируем список по алфавиту
+  
     isoList.sort();
 
-    // Разделяем список на две части
     const halfLength = Math.ceil(isoList.length / 2);
     const firstHalf = isoList.slice(0, halfLength);
     const secondHalf = isoList.slice(halfLength);
 
-    // Отправляем первую половину списка
     let formattedList = 'List of languages (ISO 639-1):\n\n';
     formattedList += '```\n';
     formattedList += firstHalf.join('\n');
     formattedList += '```';
     await ctx.replyWithMarkdown(formattedList);
 
-    // Отправляем вторую половину списка
     formattedList = '```\n';
     formattedList += secondHalf.join('\n');
     formattedList += '```';
@@ -172,7 +156,7 @@ bot.on('text', async (ctx) => {
         const langCode = ctx.message.text;
         if (iso6391.validate(langCode)) {
             status.userLang = langCode;
-            status.awaitingLanguage = null; // Reset language awaiting status
+            status.awaitingLanguage = null; 
             await translateAndReply(`Language is set to ${iso6391.getName(langCode)}`, ctx);
         } else {
             await translateAndReply('Incorrect language code. Enter the language code from ISO 639-1 (e.g. en, ru, de).', ctx);
@@ -181,7 +165,7 @@ bot.on('text', async (ctx) => {
         const langCode = ctx.message.text;
         if (iso6391.validate(langCode)) {
             status.botLang = langCode;
-            status.awaitingLanguage = null; // Reset language awaiting status
+            status.awaitingLanguage = null; 
             await translateAndReply(`The bot language is set to ${iso6391.getName(langCode)}`, ctx);
         } else {
             await translateAndReply('Incorrect language code. Enter the language code from ISO 639-1 (e.g. en, ru, de).', ctx);
