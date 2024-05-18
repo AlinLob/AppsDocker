@@ -26,36 +26,53 @@ let currentProxyIndex = 0;
 const proxies = JSON.parse(process.env.PROXIES);
 
 async function translateWithProxy(text, lang, ctx) {
-    const proxy = proxies[currentProxyIndex];
-    console.log(`Using proxy: ${proxy.ip}:${proxy.port}`);
-    const proxyUrl = `http://${proxy.username}:${proxy.password}@${proxy.ip}:${proxy.port}`;
-    const agent = new HttpsProxyAgent(proxyUrl);
+    const numProxies = proxies.length;
 
-    try {
-        const result = await translate(text, { to: lang, fetchOptions: { agent } });
-        return result.text;
-    } catch (error) {
-        console.error('Error while translating:', error);
+    // Переменная для отслеживания количества неудачных попыток перевода
+    let failedAttempts = 0;
 
-        if (error.code === '429' || error.message.includes('Too Many Requests')) {
-            // Handle TooManyRequestsError by switching to the next proxy server
-            console.log('Too many requests, switching to the next proxy.');
-            currentProxyIndex = (currentProxyIndex + 1) % proxies.length;
-            console.log(`Next proxy index: ${currentProxyIndex}`);
+    while (failedAttempts < numProxies) {
+        const proxy = proxies[currentProxyIndex];
+        console.log(`Using proxy: ${proxy.ip}:${proxy.port}`);
+        const proxyUrl = `http://${proxy.username}:${proxy.password}@${proxy.ip}:${proxy.port}`;
+        const agent = new HttpsProxyAgent(proxyUrl);
 
-            // Introduce a delay before retrying with the next proxy
-            await new Promise(resolve => setTimeout(resolve, 3000)); // 3 seconds delay
+        try {
+            const result = await translate(text, { to: lang, fetchOptions: { agent } });
+            console.log('Translation successful!');
+            return result.text;
+        } catch (error) {
+            console.error('Error while translating:', error);
 
-            // Retry translation with the next proxy server
-            return translateWithProxy(text, lang);
-        } else {
-            if (ctx && ctx.reply) {
-                await ctx.reply('The request limit has been reached. Please try again later.');
+            if (error.code === '429' || error.message.includes('Too Many Requests')) {
+                // Handle TooManyRequestsError by switching to the next proxy server
+                console.log('Too many requests, switching to the next proxy.');
+                currentProxyIndex = (currentProxyIndex + 1) % numProxies;
+                console.log(`Next proxy index: ${currentProxyIndex}`);
+
+                // Introduce a delay before retrying with the next proxy
+                await new Promise(resolve => setTimeout(resolve, 3000)); // 3 seconds delay
+
+                // Increment the failedAttempts counter
+                failedAttempts++;
+            } else {
+                // Если возникла другая ошибка, бросаем ее дальше для обработки
+                throw error;
             }
-            throw new Error('The request limit has been reached. Please try again later.');
-    }   }
-  
+        }
+    }
+
+    // Если все прокси были попробованы безуспешно
+    if (ctx && ctx.reply) {
+        await ctx.reply('All proxies failed. Please try again later.');
+    }
+    // Возвращаем сообщение об исчерпании лимита запросов
+    return 'The request limit has been reached. Please try again later.';
 }
+
+    
+
+
 
 async function translateAndReply(text, ctx) {
     let lang;
@@ -83,23 +100,51 @@ bot.start(async (ctx) => {
 - Translating text into different languages.
 
 🛠 How to get started:
-1. Set yourself a language using the /setlang command.
+1. Set a language for yourself using the /setlang command.
 2. Set the language for the bot using the /setbotlang command.
 
 🔤 I use the ISO 639-1 standard to designate languages.
 
 ⬇️ Press /iso639 to see a list of supported languages.
+
+ℹ️ Additional commands:
+- /mylang: Check the user's current language.
+- /botlang: Check current bot language.
 `;
     await translateAndReply(welcomeMessage, ctx);
 });
-    
+
 
 bot.command('iso639', async (ctx) => {
-    const isoList = iso6391.getAllCodes().map(code => ` - ${iso6391.getName(code)}: ${code}`);
-    let formattedList = 'List of languages (ISO 639-1):\n\n\n';
-    formattedList += isoList.join('\n');
-    await ctx.reply(formattedList);
+    // Получаем все коды языков и создаем строку для каждого языка в формате "Название: Код"
+    const isoList = iso6391.getAllCodes().map(code => {
+        const name = iso6391.getName(code);
+        return ` • ${name}: ${code}`;
+    });
+    // Сортируем список по алфавиту
+    isoList.sort();
+
+    // Разделяем список на две части
+    const halfLength = Math.ceil(isoList.length / 2);
+    const firstHalf = isoList.slice(0, halfLength);
+    const secondHalf = isoList.slice(halfLength);
+
+    // Отправляем первую половину списка
+    let formattedList = 'List of languages (ISO 639-1):\n\n';
+    formattedList += '```\n';
+    formattedList += firstHalf.join('\n');
+    formattedList += '```';
+    await ctx.replyWithMarkdown(formattedList);
+
+    // Отправляем вторую половину списка
+    formattedList = '```\n';
+    formattedList += secondHalf.join('\n');
+    formattedList += '```';
+    await ctx.replyWithMarkdown(formattedList);
+
 });
+
+
 
 bot.command('setlang', async (ctx) => {
     status.awaitingLanguage = 'userLang';
